@@ -1,0 +1,244 @@
+---
+title: "Create Model On Flim Data and Compare it with Nate Silver's Model"
+output: html_notebook
+Professor Tom Smith: 630-661-9731
+---
+
+
+# Install the packages
+```{r}
+
+install.packages("ggplot2")
+library(ggplot2)
+
+install.packages("Rtools")
+library(Rtools)
+
+install.packages("ggthemes")
+library(ggthemes)
+
+install.packages("caTools")
+library(caTools)
+
+install.packages("stringr")
+library(stringr)
+
+install.packages("modelr")  #
+library(modelr)
+
+
+```
+
+#The below chunk imports data frame from my 00Rdata
+```{r}
+PBMovie <- read.csv("~/00Rdata/PrettyBigMovieData.csv")
+View(PBMovie)
+
+```
+
+# Let's create a subset dataframe for genre, budget, Year
+```{r}
+str(PBMovie)
+summary(PBMovie)
+
+SmallBudgetPBMovie <- subset(PBMovie,PBMovie$budget<7500000)
+View(SmallBudgetPBMovie)
+
+MediumBudgetPBMovie <- subset(PBMovie,PBMovie$budget>=7500000 & PBMovie$budget<45000000)
+View(MediumBudgetPBMovie)
+
+LargeBudgetPBMovie <- subset(PBMovie,PBMovie$budget>=45000000)
+View(LargeBudgetPBMovie)
+
+PBMovie2010Released <- subset(PBMovie,PBMovie$title_year=="2010")
+View(PBMovie2010Released)
+
+```
+
+# Splitting the data into Tranning and Test sets. Run the model in training set and test the accuracy in the test space
+```{r}
+
+# install.packages("caTools")
+# library(caTools)
+
+set.seed(404) #Set the seed allows me ti replicate this analysis exactly
+
+#Since I observed order in "content rating" column, I randomized the data set 
+TempRandom <- runif(nrow(PBMovie))
+PBMovieRandom <- PBMovie[order(TempRandom), ]
+
+split = sample.split(PBMovieRandom$gross, SplitRatio=0.7)
+PBMovietraining = subset(PBMovieRandom, split == TRUE)
+PBMovietest = subset(PBMovieRandom, split == FALSE)
+
+summary(PBMovietraining)
+summary(PBMovietest)
+
+```
+
+# Build the model on Training data "PBMovietraining"
+```{r}
+
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$language+PBMovietraining$country+PBMovietraining$content_rating+PBMovietraining$budget,PBMovietraining$imdb_score+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+
+#Lot of N/A's with country field. So, removed it from the model
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$language+PBMovietraining$content_rating+PBMovietraining$budget,PBMovietraining$imdb_score+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+#Language field seems to have high P-value. So, removed it from the model
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$content_rating+PBMovietraining$budget+PBMovietraining$imdb_score+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+#Budget's P-value is too high changed it to square still too high
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$content_rating+I(PBMovietraining$budget^2)+PBMovietraining$imdb_score+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+
+#Budget's P-value is too high changed it to log
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$content_rating+I(log(PBMovietraining$budget))+PBMovietraining$imdb_score+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+
+#Imdb score's P-value is too high. Removed it
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+PBMovietraining$content_rating+I(log(PBMovietraining$budget))+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+#let's try without rating and include IMDB score
+Model_PBMovietraining<- lm(PBMovietraining$gross~PBMovietraining$num_critic_for_reviews+PBMovietraining$duration+PBMovietraining$director_facebook_likes+PBMovietraining$actor_3_facebook_likes+PBMovietraining$actor_2_facebook_likes+PBMovietraining$actor_1_facebook_likes+PBMovietraining$num_voted_users+PBMovietraining$cast_total_facebook_likes+PBMovietraining$facenumber_in_poster+PBMovietraining$num_user_for_reviews+I(log(PBMovietraining$budget))+PBMovietraining$content_rating+PBMovietraining$movie_facebook_likes+PBMovietraining$aspect_ratio, data=PBMovietraining)
+
+summary(Model_PBMovietraining)
+
+```
+
+# remove na in r - remove rows - na.omit function / option
+```{r}
+
+set.seed(404)
+
+#Removing Missing Values
+PBMovieCleaned<- na.omit(PBMovie)
+View(PBMovieCleaned)
+
+
+TempRandom <- runif(nrow(PBMovieCleaned))
+PBMovieCleanedRandom <- PBMovieCleaned[order(TempRandom), ]
+
+split = sample.split(PBMovieCleanedRandom$gross, SplitRatio=0.7)
+PBMovieCleanedtraining = subset(PBMovieCleanedRandom, split == TRUE)
+PBMovieCleanedtest= subset(PBMovieCleanedRandom, split == FALSE)
+
+#After cleaning and splitting the dataset in Training and test
+Model_PBMovieCleanedtraining<- lm(PBMovieCleanedtraining$gross~PBMovieCleanedtraining$num_critic_for_reviews+PBMovieCleanedtraining$duration+PBMovieCleanedtraining$director_facebook_likes+PBMovieCleanedtraining$actor_3_facebook_likes+PBMovieCleanedtraining$actor_2_facebook_likes+PBMovieCleanedtraining$actor_1_facebook_likes+PBMovieCleanedtraining$num_voted_users+PBMovieCleanedtraining$cast_total_facebook_likes+PBMovieCleanedtraining$num_user_for_reviews+PBMovieCleanedtraining$budget+PBMovieCleanedtraining$content_rating+PBMovieCleanedtraining$movie_facebook_likes+PBMovieCleanedtraining$aspect_ratio, data=PBMovieCleanedtraining)
+
+# removed many columns
+Model_PBMovieCleanedtraining <- lm(PBMovieCleanedtraining$gross~PBMovieCleanedtraining$num_critic_for_reviews+PBMovieCleanedtraining$director_facebook_likes+PBMovieCleanedtraining$actor_3_facebook_likes+PBMovieCleanedtraining$actor_2_facebook_likes+PBMovieCleanedtraining$actor_1_facebook_likes+PBMovieCleanedtraining$num_voted_users+PBMovieCleanedtraining$cast_total_facebook_likes+PBMovieCleanedtraining$num_user_for_reviews+I(log(PBMovieCleanedtraining$budget))+PBMovieCleanedtraining$content_rating+PBMovieCleanedtraining$movie_facebook_likes+PBMovieCleanedtraining$aspect_ratio, data=PBMovieCleanedtraining)
+
+#Model_PBMovieCleanedtraining<- lm(PBMovieCleanedtraining$gross~ . , data=PBMovieCleanedtraining)
+
+# Fixed the variable names
+Model_PBMovieCleanedtraining <- lm(gross~num_critic_for_reviews+director_facebook_likes+actor_3_facebook_likes+actor_2_facebook_likes+actor_1_facebook_likes+num_voted_users+cast_total_facebook_likes+num_user_for_reviews+I(log(budget))+content_rating+movie_facebook_likes+aspect_ratio, data=PBMovieCleanedtraining)
+
+summary(Model_PBMovieCleanedtraining)
+
+
+# Create a new variable to show predicted value from my model
+
+PBMovieCleanedtest$GrossPredicted <- predict(Model_PBMovieCleanedtraining, newdata=PBMovieCleanedtest)
+View(PBMovieCleanedtest)
+#Plot the model
+#ggplot(InterviewData,aes(InterviewData$Worldwide.Box.Office,InterviewData$WWPred2))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+# Question: is there a way to tell the model that Gross cannot be negative?
+
+```
+
+#Replicate what Nate did
+```{r}
+
+
+#We can also put all conditions in one statement
+DataDoubleCheck <- subset(PBMovie,PBMovie$content_rating=="R" & PBMovie$title_year>=2000 & PBMovie$budget>20000000 & PBMovie$budget<120000000)
+
+DataFirstPass <- subset(PBMovieCleaned,PBMovieCleaned$content_rating=="R")
+View(DataFirstPass)
+
+DataSecondPass <- subset(DataFirstPass,DataFirstPass$title_year>=2000)
+View(DataSecondPass)
+
+DataThirdPass <- subset(DataSecondPass,DataSecondPass$budget>20000000 & DataSecondPass$budget<80000000)
+View(DataThirdPass)
+
+DataFourthPass <- DataThirdPass[str_detect(DataThirdPass$genres,"Action|Comedy"),]
+View(DataFourthPass)
+
+DataFifthPass <- DataFourthPass[str_detect(DataFourthPass$country,"US") & (DataFourthPass$Movie_title != "The Interview"),]
+View(DataFifthPass)
+
+#Removing Missing Values
+PBMovieCleaned<- na.omit(DataFifthPass)
+View(PBMovieCleaned)
+
+#To test Nate's Model, we have to brind down the units on same page
+PBMovieCleaned$BudgetM <- PBMovieCleaned$budget/1000000
+PBMovieCleaned$GrossM <- PBMovieCleaned$gross/1000000
+
+
+# Split the Model
+set.seed(404)
+split = sample.split(PBMovieCleaned$gross, SplitRatio=0.7)
+PBMovieCleanedtrain = subset(PBMovieCleaned, split == TRUE)
+PBMovieCleanedtest= subset(PBMovieCleaned, split == FALSE)
+
+summary(PBMovieCleanedtrain)
+
+View(PBMovieCleanedtrain)
+View(PBMovieCleanedtest)
+
+#After cleaning and splitting the dataset in Training and test
+Model_PBMovieCleanedtrain<- lm(PBMovieCleanedtrain$gross~PBMovieCleanedtrain$num_critic_for_reviews+PBMovieCleanedtrain$duration+PBMovieCleanedtrain$director_facebook_likes+PBMovieCleanedtrain$actor_3_facebook_likes+PBMovieCleanedtrain$actor_2_facebook_likes+PBMovieCleanedtrain$actor_1_facebook_likes+PBMovieCleanedtrain$num_voted_users+PBMovieCleanedtrain$cast_total_facebook_likes+PBMovieCleanedtrain$num_user_for_reviews+PBMovieCleanedtrain$budget+PBMovieCleanedtrain$content_rating+PBMovieCleanedtrain$movie_facebook_likes, data=PBMovieCleanedtrain)
+
+
+# Final model after variable analysis
+Model_PBMovieCleanedtrain <- lm(gross~num_critic_for_reviews+director_facebook_likes+actor_3_facebook_likes+actor_2_facebook_likes+actor_1_facebook_likes+num_voted_users+cast_total_facebook_likes+num_user_for_reviews+I(log(budget))+content_rating+movie_facebook_likes, data=PBMovieCleanedtrain)
+
+summary(Model_PBMovieCleanedtrain)
+
+```
+
+# Cleaning -- Binding the datasets
+```{r}
+
+BigMovie1 <- subset(PBMovie,PBMovie$budget> 50000000 & PBMovie$budget<100000000)
+MovieMat <- BigMovie1[str_detect(PBMovie$actor_1_name,"Matt Damon"),]
+BigMovie1PlusMat <- rbind(BigMovie1,MovieMat)
+
+BigMoviePlusMatClean <- BigMovie1PlusMat[!duplicated(BigMovie1PlusMat$Movie_title),]
+
+```
+
+# Cleaning -- eliminate the columns
+```{r}
+
+PBMovieCol <- subset(PBMovie, select = -c(color))
+
+```
+
+#Using modelr - evaluate the model
+```{r}
+data.frame(  R2 = rsquare(Model_PBMovieCleanedtraining, data = PBMovieCleanedtraining),  RMSE = rmse(Model_PBMovieCleanedtraining, data = PBMovieCleanedtraining),  MAE = mae(Model_PBMovieCleanedtraining, data = PBMovieCleanedtraining))
+
+plot(PBMovieCleanedtraining)
+
+```
+
+
+#
+```{r}
+
+#building a model
+movieModelJulia<-lm(gross~budget+num_voted_users, data=BigMovie1)
+summary(movieModelJulia)
+
+#force fit the value trying to predict using the model
+MovieTest <- data.frame(budget = c(23000000,18000000,65000000), num_voted_users=c(17000,5800,2680))
+predict(movieModelJulia, newdata = MovieTest)
+
+```
+
+# Test this on (Neighbors, This Is the End, Bad Moms, Horrible Bosses, Game Night) 

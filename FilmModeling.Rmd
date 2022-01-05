@@ -1,0 +1,155 @@
+---
+title: "Film  modeling"
+Team:
+  1. Jeremy Phillips
+  2. Timothy Lam
+  3. Murli Singh
+output: html_notebook
+---
+
+# Install the packages
+```{r}
+
+install.packages("Rtools")
+library(Rtools)
+
+install.packages("ggplot2")
+library(ggplot2)
+
+install.packages("ggthemes")
+library(ggthemes)
+
+install.packages("caTools")
+library(caTools)
+
+install.packages("stringr")
+library(stringr)
+
+install.packages("modelr")  #for model evaluation
+library(modelr)
+
+```
+
+#The below chunk imports data frame from my 00Rdata
+```{r}
+PBMovie <- read.csv("~/00Rdata/PrettyBigMovieData.csv")
+View(PBMovie)
+
+```
+
+
+# Data cleaning and building models and comparing it with Nate's model
+```{r}
+
+#We can also put all conditions in one statement
+#DataDoubleCheck <- subset(PBMovie,PBMovie$content_rating=="R" & PBMovie$title_year>=2000 & PBMovie$budget>20000000 & PBMovie$budget<120000000)
+
+DataFirstPass <- subset(PBMovie,PBMovie$content_rating=="R")
+View(DataFirstPass)
+
+DataSecondPass <- subset(DataFirstPass,DataFirstPass$title_year>=2000)
+View(DataSecondPass)
+
+DataThirdPass <- subset(DataSecondPass,DataSecondPass$budget>20000000 & DataSecondPass$budget<80000000)
+View(DataThirdPass)
+
+DataFourthPass <- DataThirdPass[str_detect(DataThirdPass$genres,"Action|Comedy"),]
+View(DataFourthPass)
+
+DataFifthPass <- DataFourthPass[str_detect(DataFourthPass$country,"US") & (DataFourthPass$Movie_title != "The Interview"),]
+View(DataFifthPass)
+
+#Removing Missing Values
+PBMovieCleaned<- na.omit(DataFifthPass)
+View(PBMovieCleaned)
+
+#To test Nate's Model, we have to bring down the units on same page
+PBMovieCleaned$BudgetM <- PBMovieCleaned$budget/1000000
+PBMovieCleaned$GrossM <- PBMovieCleaned$gross/1000000
+PBMovieCleaned$BudgetM_sqr <- PBMovieCleaned$budget^2
+PBMovieCleaned$BudgetM_log <- log(PBMovieCleaned$BudgetM)
+PBMovieCleaned$imdb_score_sqr <- PBMovieCleaned$imdb_score^2
+PBMovieCleaned$imdb_score_log <- log(PBMovieCleaned$imdb_score)
+
+View(PBMovieCleaned)
+
+summary(PBMovieCleaned)
+
+# Split the Model
+set.seed(404)
+split = sample.split(PBMovieCleaned$gross, SplitRatio=0.7)
+PBMovieCleanedtrain = subset(PBMovieCleaned, split == TRUE)
+PBMovieCleanedtest= subset(PBMovieCleaned, split == FALSE)
+
+View(PBMovieCleanedtrain)
+View(PBMovieCleanedtest)
+
+#After cleaning and splitting the dataset in Training and test
+Model_PBMovieCleanedtrain<- lm(PBMovieCleanedtrain$gross~PBMovieCleanedtrain$num_critic_for_reviews+PBMovieCleanedtrain$duration+PBMovieCleanedtrain$director_facebook_likes+PBMovieCleanedtrain$actor_3_facebook_likes+PBMovieCleanedtrain$actor_2_facebook_likes+PBMovieCleanedtrain$actor_1_facebook_likes+PBMovieCleanedtrain$num_voted_users+PBMovieCleanedtrain$cast_total_facebook_likes+PBMovieCleanedtrain$num_user_for_reviews+PBMovieCleanedtrain$budget+PBMovieCleanedtrain$content_rating+PBMovieCleanedtrain$movie_facebook_likes, data=PBMovieCleanedtrain)
+
+
+# Final model after variable analysis
+Model_PBMovieCleanedtrain <- lm(gross~num_critic_for_reviews+director_facebook_likes+actor_3_facebook_likes+actor_2_facebook_likes+actor_1_facebook_likes+num_voted_users+cast_total_facebook_likes+num_user_for_reviews+I(log(budget))+content_rating+movie_facebook_likes, data=PBMovieCleanedtrain)
+summary(Model_PBMovieCleanedtrain)
+
+#Nate's Model
+NateModel <- lm(GrossM~BudgetM+imdb_score, data=PBMovieCleanedtrain)
+summary(NateModel)
+
+#Room2's Model
+Room2Model <- lm(GrossM~BudgetM+imdb_score+movie_facebook_likes+actor_1_facebook_likes+num_voted_users+num_critic_for_reviews+actor_2_facebook_likes+actor_3_facebook_likes+director_facebook_likes+cast_total_facebook_likes,data=PBMovieCleanedtrain)
+summary(Room2Model)
+
+Room2Model2 <- lm(GrossM~BudgetM+imdb_score+movie_facebook_likes,data=PBMovieCleanedtrain)
+summary(Room2Model2)
+
+
+#Room2Model3 <- lm(GrossM~BudgetM+imdb_score_sqr,data=PBMovieCleanedtrain)
+#summary(Room2Model3)
+
+# Create a new variable to show predicted value fro Nate's model
+PBMovieCleanedtest$GrossPredNate <- predict(NateModel, newdata=PBMovieCleanedtest)
+View(PBMovieCleanedtest)
+
+# Create a new variable to show predicted value fro Room2model
+PBMovieCleanedtest$GrossPred <- predict(Room2Model, newdata=PBMovieCleanedtest)
+View(PBMovieCleanedtest)
+
+# Create a new variable to show predicted value fro Room2model2
+PBMovieCleanedtest$GrossPred2 <- predict(Room2Model2, newdata=PBMovieCleanedtest)
+View(PBMovieCleanedtest)
+
+# Create a new variable to show predicted value fro Room2model3
+#PBMovieCleanedtest$GrossPred3 <- predict(Room2Model3, newdata=PBMovieCleanedtest)
+#View(PBMovieCleanedtest)
+
+```
+
+
+#Using modelr - evaluate the model
+```{r}
+
+#Evaluate on Training dataset
+data.frame(  R2 = rsquare(NateModel, data = PBMovieCleanedtrain),  RMSE = rmse(NateModel, data = PBMovieCleanedtrain),  MAE = mae(NateModel, data = PBMovieCleanedtrain))
+
+data.frame(  R2 = rsquare(Room2Model, data = PBMovieCleanedtrain),  RMSE = rmse(Room2Model, data = PBMovieCleanedtrain),  MAE = mae(Room2Model, data = PBMovieCleanedtrain))
+
+data.frame(  R2 = rsquare(Room2Model2, data = PBMovieCleanedtrain),  RMSE = rmse(Room2Model2, data = PBMovieCleanedtrain),  MAE = mae(Room2Model2, data = PBMovieCleanedtrain))
+
+
+#Evaluate on Testing dataset
+data.frame(  R2 = rsquare(NateModel, data = PBMovieCleanedtest),  RMSE = rmse(NateModel, data = PBMovieCleanedtest),  MAE = mae(NateModel, data = PBMovieCleanedtest))
+
+data.frame(  R2 = rsquare(Room2Model, data = PBMovieCleanedtest),  RMSE = rmse(Room2Model, data = PBMovieCleanedtest),  MAE = mae(Room2Model, data = PBMovieCleanedtest))
+
+data.frame(  R2 = rsquare(Room2Model2, data = PBMovieCleanedtest),  RMSE = rmse(Room2Model2, data = PBMovieCleanedtest),  MAE = mae(Room2Model2, data = PBMovieCleanedtest))
+
+#Plot the model
+ggplot(PBMovieCleanedtest,aes(PBMovieCleanedtest$GrossM,PBMovieCleanedtest$GrossPredNate))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+ggplot(PBMovieCleanedtest,aes(PBMovieCleanedtest$GrossM,PBMovieCleanedtest$GrossPred))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+ggplot(PBMovieCleanedtest,aes(PBMovieCleanedtest$GrossM,PBMovieCleanedtest$GrossPred2))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+```
+

@@ -1,0 +1,257 @@
+---
+title: "Film Module Notebook"
+output: html_notebook
+---
+
+
+#Load Pacakages and Libraries
+```{r}
+
+install.packages("caTools")
+library(caTools)
+
+
+# Install the packages
+
+install.packages("ggplot2")
+install.packages("Rtools")
+
+# Enabling the ggplot
+library(ggplot2)
+
+install.packages("ggthemes")
+library(ggthemes)
+
+```
+
+
+
+#The below chunk imports data frame from my 00Rdata
+```{r}
+InterviewData <- read.csv("~/00Rdata/InterviewData.csv")
+View(InterviewData)
+
+```
+
+
+#Check structure of the data to see if the variables are interpreted as we want them
+```{r}
+
+str(InterviewData)
+
+
+```
+
+
+#In this chunk I am gonna rename my chunk
+```{r}
+
+MurliData <- InterviewData
+View(MurliData)
+
+```
+
+
+#Create a new variable
+```{r}
+
+MurliData$Boxoffice.per.budget <- (MurliData$Worldwide.Box.Office/MurliData$Budget)
+
+MurliData$Boxoffice.per.RTRating <- (MurliData$Worldwide.Box.Office/MurliData$RT.Rating)
+
+```
+
+
+#Check structure of the data to see if the variables are interpreted as we want them
+```{r}
+
+str(MurliData)
+
+```
+
+
+# Subset the data
+# "&" for "and" operator
+# "|" for "Or" operator
+# "==" for "equal" operator
+```{r}
+
+SmallBudgetData <- subset(MurliData,MurliData$Budget<35)
+View(SmallBudgetData)
+
+SmallBudgetData1 <- subset(MurliData,MurliData$Budget<=45)
+View(SmallBudgetData1)
+
+
+SmallBudgetData3 <- subset(MurliData,MurliData$Budget>35 & MurliData$Worldwide.Box.Office<100)
+View(SmallBudgetData3)
+
+
+SmallBudgetData4 <- subset(MurliData,MurliData$Year.of.release==2010)
+View(SmallBudgetData4)
+
+
+SmallBudgetData5 <- subset(MurliData,MurliData$Budget>35 | MurliData$Budget>120)
+View(SmallBudgetData5)
+
+```
+
+
+# create a scatter plot using ggplot
+```{r}
+
+ggplot(data = MurliData, mapping = aes(x=MurliData$Budget,y=MurliData$RT.Rating))+geom_point(color="Orange")+theme_light()+labs(title="Budget vs Rotten Tomatoes Ratings", y="Rotten Tomattos Rating", x="Movie Budget in million")+theme(plot.title = element_text(hjust = 0.5,color="#012169", size=12, face="plain"))
+
+# color="#012169" is Emory Color Code
+
+```
+
+
+#Budget (0-50)=small, (50-100)=medium, (100+)=large
+```{r}
+
+MurliData$Budget.Category[(MurliData$Budget<50)] <- "Small"
+MurliData$Budget.Category[(MurliData$Budget>=50) & (MurliData$Budget<=100)] <- "Medium"
+MurliData$Budget.Category[(MurliData$Budget>100)] <- "Large"
+
+str(MurliData)
+summary(MurliData)
+
+```
+
+
+# Color Coding and customization of colors
+```{r}
+
+ggplot(data = MurliData, mapping = aes(x=MurliData$Budget,y=MurliData$Worldwide.Box.Office,colour=MurliData$Budget.Category))+geom_point()+theme_light()
+
+ggplot(data = MurliData, mapping = aes(x=MurliData$Budget,y=MurliData$Worldwide.Box.Office,colour=MurliData$Budget.Category))+geom_point()+geom_smooth(method = lm,se=FALSE)+scale_color_manual(values = c("#ff0000","#ffc000","#79eb00"))+theme_light()
+
+```
+
+
+
+```{r}
+install.packages("stringr")
+library(stringr)
+```
+
+
+#Below chunk imports "PrettyBigMovieData" frame from my 00Rdata
+```{r}
+
+PBMovie <- read.csv("~/00Rdata/PrettyBigMovieData.csv")
+View(PBMovie)
+str(PBMovie)
+
+```
+
+
+# Substring Operations using stringr
+```{r}
+
+TomMovie <- PBMovie[str_detect(PBMovie$actor_1_name,"Tom"),]
+View(TomMovie)
+
+DeadMovie <- PBMovie[str_detect(PBMovie$Movie_title,"Dead"),]
+View(DeadMovie)
+
+ActionComedyMovie <- PBMovie[str_detect(PBMovie$genres,"Action|Comedy"),]
+View(ActionComedyMovie)
+
+TionMovie <- PBMovie[str_detect(PBMovie$Movie_title,"tion"),]
+View(TionMovie)
+
+```
+
+
+
+# Trying to replicate what Nate did using model
+```{r}
+
+# Try linear model to see what good model looks like
+Model1<- lm(InterviewData$Worldwide.Box.Office~InterviewData$RT.Rating+InterviewData$Budget, data=InterviewData)
+summary(Model1)
+# Create a new variable to show predicted value from my model
+InterviewData$WWPred <- predict(Model1, data=InterviewData)
+#Plot the model
+ggplot(InterviewData,aes(InterviewData$Worldwide.Box.Office,InterviewData$WWPred))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+
+# Try new model to see what bad model looks like
+Model2<- lm(InterviewData$Worldwide.Box.Office~InterviewData$RT.Rating+InterviewData$Year.of.release, data=InterviewData)
+summary(Model2)
+# Create a new variable to show predicted value from my model
+InterviewData$WWPred2 <- predict(Model2, data=InterviewData)
+#Plot the model
+ggplot(InterviewData,aes(InterviewData$Worldwide.Box.Office,InterviewData$WWPred2))+geom_point()+theme_light()+geom_abline(intercept = 0, slope=1)
+
+```
+
+
+# Absolute difference between Predicted vS actual
+```{r}
+
+InterviewData$AbsDiff <- abs(InterviewData$Worldwide.Box.Office-InterviewData$WWPred)
+
+InterviewData$AbsPerct1 <- InterviewData$AbsDiff/InterviewData$Worldwide.Box.Office
+
+InterviewData$AbsDiff2 <- abs(InterviewData$Worldwide.Box.Office-InterviewData$WWPred2)
+
+InterviewData$AbsPerct2 <- InterviewData$AbsDiff2/InterviewData$Worldwide.Box.Office
+
+summary(InterviewData)
+
+```
+
+
+# Let's create a subset dataframe for genre, budget, Year
+```{r}
+str(PBMovie)
+summary(PBMovie)
+
+SmallBudgetPBMovie <- subset(PBMovie,PBMovie$budget<7500000)
+View(SmallBudgetPBMovie)
+
+
+MediumBudgetPBMovie <- subset(PBMovie,PBMovie$budget>=7500000 & PBMovie$budget<45000000)
+View(MediumBudgetPBMovie)
+
+LargeBudgetPBMovie <- subset(PBMovie,PBMovie$budget>=45000000)
+View(LargeBudgetPBMovie)
+
+PBMovie2010Released <- subset(PBMovie,PBMovie$title_year=="2010")
+View(PBMovie2010Released)
+
+```
+
+
+
+# Splitting the data into Tranning and Test sets. Run the model in training set and test the accuracy in the test space
+```{r}
+
+install.packages("caTools")
+library(caTools)
+
+set.seed(404) #Set the seed allows me ti replicate this analysis exactly
+
+split = sample.split(PrettyBigMovieData$budget, SplitRatio=0.7)
+PBMovietraining = subset(PrettyBigMovieData, split == TRUE)
+PBMovietest= subset(PrettyBigMovieData, split == FALSE)
+
+```
+
+
+# Build the model on Training data "PBMovietraining"
+```{r}
+
+Model_PBMovietraining<- lm(PBMovietraining$gross~ ., data=PBMovietraining)
+summary(Model_PBMovietraining)
+
+```
+
+
+
+
+
+
